@@ -2,6 +2,8 @@ $(document).ready(function() {
 
     // Global object to store airport code-to-name mapping
     let airportNames = {};
+    // New mapping for timezones
+    let airportTimeZones = {}; 
     // Store all flight data
     let allJourneys = []; 
 
@@ -54,6 +56,30 @@ $(document).ready(function() {
         // Update localStorage to reflect the swap
         localStorage.setItem('origins', JSON.stringify(destinationsVal));
         localStorage.setItem('destinations', JSON.stringify(originsVal));
+    });
+
+    // View toggle logic
+    $('#tile-view-btn').on('click', function() {
+        $('#tile-view-btn').addClass('active');
+        $('#table-view-btn').removeClass('active');
+        $('#tiles-container').show();
+        $('#flights-table').hide();
+        $('.dataTables_paginate').hide();
+        $('.dataTables_filter').hide();
+        $('.dataTables_info').hide();
+        $('.dataTables_length').hide();
+    });
+
+    $('#table-view-btn').on('click', function() {
+        $('#table-view-btn').addClass('active');
+        $('#tile-view-btn').removeClass('active');
+        $('#flights-table').show();
+        $('#tiles-container').hide();
+        $('.dataTables_paginate').show();
+        $('.dataTables_filter').show();
+        $('.dataTables_info').show();
+        $('.dataTables_length').show();
+        table.columns.adjust().draw(); // Recalculate table layout
     });
 
     // Add event listener for the checkbox
@@ -115,6 +141,9 @@ $(document).ready(function() {
         order: [[8, 'asc']], // Sort by total duration by default
         pageLength: 100      // Set pagination to 100 rows per page
     });
+
+    table.clear().draw(); // Clear the table initially
+    $('#tile-view-btn').click(); // Switch to tile view by default
 	
 	// Add CSS to prevent wrapping in date-time columns
     $('<style>').text(`
@@ -129,6 +158,7 @@ $(document).ready(function() {
         .then(data => {
             data.forEach(airport => {
                 airportNames[airport.code] = airport.name;
+                airportTimeZones[airport.code] = airport.timeZone;
                 const option = `<option value="${airport.code}">${airport.name} (${airport.code})</option>`;
                 $('#origins').append(option);
                 $('#destinations').append(option);
@@ -226,9 +256,25 @@ $(document).ready(function() {
     }
 
     // Helper function to calculate flight duration between two times
-    function calculateFlightDuration(start, end) {
-        const startTime = moment(start, 'YYYY-MM-DD HH:mm');
-        const endTime = moment(end, 'YYYY-MM-DD HH:mm');
+    function calculateFlightDuration(start, end, startAirportCode, endAirportCode, timeMode) {
+        let startTime = moment(start, 'YYYY-MM-DD HH:mm');
+        let endTime = moment(end, 'YYYY-MM-DD HH:mm');
+
+        // If timeMode is LOCAL, convert times to UTC using the airports' timezones
+        if (timeMode === 'LOCAL') {
+            const startTimeZone = airportTimeZones[startAirportCode];
+            const endTimeZone = airportTimeZones[endAirportCode];
+
+            if (!startTimeZone || !endTimeZone) {
+                console.warn(`Timezone not found for airports: ${startAirportCode} or ${endAirportCode}`);
+                // Fallback to no conversion if timezone is missing
+            } else {
+                // Convert local times to UTC
+                startTime = moment.tz(start, 'YYYY-MM-DD HH:mm', startTimeZone).utc();
+                endTime = moment.tz(end, 'YYYY-MM-DD HH:mm', endTimeZone).utc();
+            }
+        }
+
         const diffMinutes = endTime.diff(startTime, 'minutes');
         const hours = Math.floor(diffMinutes / 60);
         const minutes = diffMinutes % 60;
@@ -246,42 +292,48 @@ $(document).ready(function() {
 
     function createTile(flight) {
         // Extract date from STD for the header (e.g., "2025-04-24 08:15" -> "Thu, Apr 24")
-        const departureDate = moment(flight.STD, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
+        const departureDate = moment(flight.DEPARTURE_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
+        const arrivalDate = moment(flight.ARRIVAL_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
 
         const originName = airportNames[flight.ORIGIN] || flight.ORIGIN;
         const destName = airportNames[flight.DEST] || flight.DEST;
         const stopName = flight.STOP ? (airportNames[flight.STOP] || flight.STOP) : '';
+        let isDirect = stopName !== '' ? false : true;
+        let timeModeSuffix = flight.TIME_MODE === 'LOCAL' ? ' LT' : 'z';
 
         return `
-            <div class="tile">
+            <div class="tile ${isDirect ? 'direct' : ''}">
                 <div class="tile-header">
                     <span class="date">Depart • ${departureDate}</span>
                     <span class="duration">Duration • ${flight.TOTAL_DURATION}</span>
                 </div>
                 <div class="timeline">
                     <div class="timeline-point">
-                        <p class="time">${moment(flight.STD, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                        <p class="time">${moment(flight.STD, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                         <p class="airport">${originName} (${flight.ORIGIN})</p>
-                        ${flight.STOP ? `<p class="duration">${calculateFlightDuration(flight.STD, flight.STA)}</p>` : ''}
+                        ${flight.STOP ? `<p class="duration">${calculateFlightDuration(flight.STD, flight.STA, flight.ORIGIN, flight.STOP, flight.TIME_MODE)}</p>` : ''}
                     </div>
                     ${flight.STOP ? `
                         <div class="timeline-point flight">
-                            <p class="time">${moment(flight.STA, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                            <p class="time">${moment(flight.STA, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                             <p class="airport">${stopName} (${flight.STOP})</p>
                         </div>
                         <div class="stopover">
                             ${flight.LAYOVER} • Stopover in ${stopName} (${flight.STOP})
                         </div>
                         <div class="timeline-point">
-                            <p class="time">${moment(flight.STD_STOP, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                            <p class="time">${moment(flight.STD_STOP, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                             <p class="airport">${stopName} (${flight.STOP})</p>
-                            <p class="duration">${calculateFlightDuration(flight.STD_STOP, flight.STA_DEST)}</p>
+                            <p class="duration">${calculateFlightDuration(flight.STD_STOP, flight.STA_DEST, flight.STOP, flight.DEST, flight.TIME_MODE)}</p>
                         </div>
                     ` : ''}
                     <div class="timeline-point">
-                        <p class="time">${moment(flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                        <p class="time">${moment(flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                         <p class="airport">${destName} (${flight.DEST})</p>
                     </div>
+                </div>
+                <div class="tile-footer">
+                    <span class="date">Arrive • ${arrivalDate}</span>
                 </div>
             </div>
         `;
@@ -306,6 +358,7 @@ $(document).ready(function() {
                 // Direct flight
                 const flight = flights[0];
                 flightData = {
+                    TIME_MODE: $('#time-format').val(), // Local or UTC
                     STD: formatDateTime(flight.departureDateTime),
                     ORIGIN: flight.departureAirportCode,
                     STA: '', // Empty for direct flights
@@ -314,7 +367,9 @@ $(document).ready(function() {
                     STD_STOP: '', // No stopover departure
                     DEST: flight.arrivalAirportCode,
                     STA_DEST: formatDateTime(flight.arrivalDateTime),
-                    TOTAL_DURATION: formatDuration(journey.duration)
+                    TOTAL_DURATION: formatDuration(journey.duration),
+                    DEPARTURE_DATE: journey.departureDateTime, // For the header
+                    ARRIVAL_DATE: journey.arrivalDateTime // For the footer
                 };
             } else if (flights.length === 2) {
                 // Connecting flight
@@ -322,6 +377,7 @@ $(document).ready(function() {
                 const secondFlight = flights[1];
                 const layover = calculateLayover(firstFlight.arrivalDateTime, secondFlight.departureDateTime);
                 flightData = {
+                    TIME_MODE: $('#time-format').val(), // Local or UTC
                     STD: formatDateTime(firstFlight.departureDateTime),
                     ORIGIN: firstFlight.departureAirportCode,
                     STA: formatDateTime(firstFlight.arrivalDateTime),
@@ -330,7 +386,9 @@ $(document).ready(function() {
                     STD_STOP: formatDateTime(secondFlight.departureDateTime),
                     DEST: secondFlight.arrivalAirportCode,
                     STA_DEST: formatDateTime(secondFlight.arrivalDateTime),
-                    TOTAL_DURATION: formatDuration(journey.duration)
+                    TOTAL_DURATION: formatDuration(journey.duration),
+                    DEPARTURE_DATE: journey.departureDateTime, // For the header
+                    ARRIVAL_DATE: journey.arrivalDateTime // For the footer
                 };
             } else {
                 console.warn('Unsupported journey with multiple stops:', journey);
@@ -338,15 +396,16 @@ $(document).ready(function() {
             }
 
             // Add data to the table using the object properties
+            let timeModeSuffix = flightData.TIME_MODE === 'LOCAL' ? ' LT' : 'z';
             table.row.add([
-                flightData.STD,
+                flightData.STD+timeModeSuffix,
                 flightData.ORIGIN,
-                flightData.STA,
+                flightData.STA ? flightData.STA+timeModeSuffix : '',
                 flightData.STOP,
                 flightData.LAYOVER,
-                flightData.STD_STOP,
+                flightData.STD_STOP ? flightData.STD_STOP+timeModeSuffix : '',
                 flightData.DEST,
-                flightData.STA_DEST,
+                flightData.STA_DEST+timeModeSuffix,
                 flightData.TOTAL_DURATION
             ]).draw();
 
