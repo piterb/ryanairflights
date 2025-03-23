@@ -1,11 +1,67 @@
 $(document).ready(function() {
+
     // Initialize Select2 for multi-select dropdowns
     $('#origins').select2();
     $('#destinations').select2();
 
-    // Initialize Flatpickr for date pickers
-    flatpickr('#departure-from', { dateFormat: 'Y-m-d' });
-    flatpickr('#departure-to', { dateFormat: 'Y-m-d' });
+    // Initialize Flatpickr for date pickers with current date prefilled
+    var departureFromPicker = flatpickr('#departure-from', { 
+        dateFormat: 'Y-m-d',
+        defaultDate: new Date()
+    });
+    var departureToPicker = flatpickr('#departure-to', { 
+        dateFormat: 'Y-m-d',
+        defaultDate: new Date()
+    });
+
+    // Restrict layover inputs to 0-12 range and ensure layover-from <= layover-to in real-time
+    $('#layover-from').on('input', function() {
+        const layoverFrom = parseFloat(this.value);
+        const layoverTo = parseFloat($('#layover-to').val()) || 12; // Default to 12 if layover-to is empty
+        if (isNaN(layoverFrom) || layoverFrom < 0) {
+            this.value = '';
+        } else if (layoverFrom > 12) {
+            this.value = 12;
+        } else if (layoverFrom > layoverTo) {
+            this.value = layoverTo; // Cap layover-from at layover-to
+        }
+    });
+
+    $('#layover-to').on('input', function() {
+        const layoverTo = parseFloat(this.value);
+        const layoverFrom = parseFloat($('#layover-from').val()) || 0; // Default to 0 if layover-from is empty
+        if (isNaN(layoverTo) || layoverTo < 0) {
+            this.value = '';
+        } else if (layoverTo > 12) {
+            this.value = 12;
+        } else if (layoverTo < layoverFrom) {
+            this.value = layoverFrom; // Floor layover-to at layover-from
+        }
+    });
+
+    // Load form values from localStorage and apply them
+        const savedDepartureFrom = localStorage.getItem('departure-from');
+    if (savedDepartureFrom) {
+        departureFromPicker.setDate(savedDepartureFrom, true);
+    } else {
+        departureFromPicker.setDate(new Date(), true); // Default to current date if no stored value
+    }
+
+    const savedDepartureTo = localStorage.getItem('departure-to');
+    if (savedDepartureTo) {
+        departureToPicker.setDate(savedDepartureTo, true);
+    } else {
+        departureToPicker.setDate(new Date(), true); // Default to current date if no stored value
+    }
+
+    const savedLayoverFrom = localStorage.getItem('layover-from');
+    $('#layover-from').val(savedLayoverFrom !== null && savedLayoverFrom !== '' ? savedLayoverFrom : 0);
+
+    const savedLayoverTo = localStorage.getItem('layover-to');
+    $('#layover-to').val(savedLayoverTo !== null && savedLayoverTo !== '' ? savedLayoverTo : 12);
+
+    const savedTimeFormat = localStorage.getItem('time-format');
+    if (savedTimeFormat) $('#time-format').val(savedTimeFormat);
 
     // Initialize DataTable with updated column titles
     const table = $('#flights-table').DataTable({
@@ -24,7 +80,8 @@ $(document).ready(function() {
             { targets: [1, 3, 6], width: '60px' } // Narrow width for ORIGIN, STOP, DEST
         ],
         responsive: true,
-        order: [[8, 'asc']] // Sort by total duration by default
+        order: [[8, 'asc']], // Sort by total duration by default
+        pageLength: 100      // Set pagination to 100 rows per page
     });
 	
 	// Add CSS to prevent wrapping in date-time columns
@@ -43,6 +100,18 @@ $(document).ready(function() {
                 $('#origins').append(option);
                 $('#destinations').append(option);
             });
+
+            const savedOrigins = localStorage.getItem('origins');
+            if (savedOrigins) {
+                const originsArray = JSON.parse(savedOrigins);
+                $('#origins').val(originsArray).trigger('change');
+            }
+
+            const savedDestinations = localStorage.getItem('destinations');
+            if (savedDestinations) {
+                const destinationsArray = JSON.parse(savedDestinations);
+                $('#destinations').val(destinationsArray).trigger('change');
+            }
         })
         .catch(error => {
             console.error('Error fetching airports:', error);
@@ -59,8 +128,17 @@ $(document).ready(function() {
         const departureFrom = $('#departure-from').val();
         const departureTo = $('#departure-to').val();
         const layoverFrom = $('#layover-from').val() || 0;
-        const layoverTo = $('#layover-to').val() || 24;
+        const layoverTo = $('#layover-to').val() || 12;
         const timeMode = $('#time-format').val();
+
+        // Save form values to localStorage
+        localStorage.setItem('origins', JSON.stringify(origins));
+        localStorage.setItem('destinations', JSON.stringify(destinations));
+        localStorage.setItem('departure-from', departureFrom);
+        localStorage.setItem('departure-to', departureTo);
+        localStorage.setItem('layover-from', layoverFrom === '' ? '' : layoverFrom);
+        localStorage.setItem('layover-to', layoverTo === '' ? '' : layoverTo);
+        localStorage.setItem('time-format', timeMode);
 
         // Show loading and disable button
         $('#loading').show();
