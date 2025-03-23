@@ -2,6 +2,8 @@ $(document).ready(function() {
 
     // Global object to store airport code-to-name mapping
     let airportNames = {};
+    // Store all flight data
+    let allJourneys = []; 
 
     // Initialize Select2 for multi-select dropdowns
     $('#origins').select2();
@@ -52,6 +54,21 @@ $(document).ready(function() {
         // Update localStorage to reflect the swap
         localStorage.setItem('origins', JSON.stringify(destinationsVal));
         localStorage.setItem('destinations', JSON.stringify(originsVal));
+    });
+
+    // Add event listener for the checkbox
+    $('#direct-flights-only').on('change', function() {
+        const directOnly = $(this).is(':checked'); // true if checked, false if unchecked
+        const filteredJourneys = directOnly 
+            ? allJourneys.filter(journey => journey.flights.length === 1) // Only direct flights
+            : allJourneys; // All flights
+        
+        // Clear current table and tiles
+        table.clear().draw();
+        $('#tiles-container').empty();
+        
+        // Re-render with filtered data
+        processFlights(filteredJourneys, table);
     });
 
     // Load form values from localStorage and apply them
@@ -163,6 +180,9 @@ $(document).ready(function() {
         // Clear table
         table.clear().draw();
 
+        // Clear tiles
+        $('#tiles-container').empty();
+
         try {
             // Create array of fetch promises
             const promises = [];
@@ -181,7 +201,7 @@ $(document).ready(function() {
 
             // Wait for all API calls to finish
             const allResponses = await Promise.all(promises);
-            const allJourneys = allResponses.flat();
+            allJourneys = allResponses.flat();
 
             // Process and display flights
             processFlights(allJourneys, table);
