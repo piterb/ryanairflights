@@ -1,5 +1,8 @@
 $(document).ready(function() {
 
+    // Global object to store airport code-to-name mapping
+    let airportNames = {};
+
     // Initialize Select2 for multi-select dropdowns
     $('#origins').select2();
     $('#destinations').select2();
@@ -108,6 +111,7 @@ $(document).ready(function() {
         .then(response => response.ok ? response.json() : Promise.reject('Network error'))
         .then(data => {
             data.forEach(airport => {
+                airportNames[airport.code] = airport.name;
                 const option = `<option value="${airport.code}">${airport.name} (${airport.code})</option>`;
                 $('#origins').append(option);
                 $('#destinations').append(option);
@@ -190,68 +194,149 @@ $(document).ready(function() {
             $('button[type="submit"]').prop('disabled', false);
         }
     });
+
+    // Helper functions
+    function formatDateTime(dateTime) {
+        return moment(dateTime).format('YYYY-MM-DD HH:mm');
+    }
+
+    function formatDuration(durationStr) {
+        const [hours, minutes] = durationStr.split(':').map(Number);
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    // Helper function to calculate flight duration between two times
+    function calculateFlightDuration(start, end) {
+        const startTime = moment(start, 'YYYY-MM-DD HH:mm');
+        const endTime = moment(end, 'YYYY-MM-DD HH:mm');
+        const diffMinutes = endTime.diff(startTime, 'minutes');
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+        return `${hours}h ${minutes}m`;
+    }
+
+    function calculateLayover(arrival, departure) {
+        const arrivalTime = moment(arrival);
+        const departureTime = moment(departure);
+        const diffMinutes = departureTime.diff(arrivalTime, 'minutes');
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+        return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    function createTile(flight) {
+        // Extract date from STD for the header (e.g., "2025-04-24 08:15" -> "Thu, Apr 24")
+        const departureDate = moment(flight.STD, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
+
+        const originName = airportNames[flight.ORIGIN] || flight.ORIGIN;
+        const destName = airportNames[flight.DEST] || flight.DEST;
+        const stopName = flight.STOP ? (airportNames[flight.STOP] || flight.STOP) : '';
+
+        return `
+            <div class="tile">
+                <div class="tile-header">
+                    <span class="date">Depart • ${departureDate}</span>
+                    <span class="duration">Duration • ${flight.TOTAL_DURATION}</span>
+                </div>
+                <div class="timeline">
+                    <div class="timeline-point">
+                        <p class="time">${moment(flight.STD, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                        <p class="airport">${originName} (${flight.ORIGIN})</p>
+                        ${flight.STOP ? `<p class="duration">${calculateFlightDuration(flight.STD, flight.STA)}</p>` : ''}
+                    </div>
+                    ${flight.STOP ? `
+                        <div class="timeline-point flight">
+                            <p class="time">${moment(flight.STA, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                            <p class="airport">${stopName} (${flight.STOP})</p>
+                        </div>
+                        <div class="stopover">
+                            ${flight.LAYOVER} • Stopover in ${stopName} (${flight.STOP})
+                        </div>
+                        <div class="timeline-point">
+                            <p class="time">${moment(flight.STD_STOP, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                            <p class="airport">${stopName} (${flight.STOP})</p>
+                            <p class="duration">${calculateFlightDuration(flight.STD_STOP, flight.STA_DEST)}</p>
+                        </div>
+                    ` : ''}
+                    <div class="timeline-point">
+                        <p class="time">${moment(flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}</p>
+                        <p class="airport">${destName} (${flight.DEST})</p>
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // Process flight data and populate table
+    function processFlights(journeys, table) {
+        let tilesHtml = '';
+
+        // Sort journeys by departureDateTime in ascending order
+        journeys.sort((a, b) => {
+            const dateA = moment(a.departureDateTime);
+            const dateB = moment(b.departureDateTime);
+            return dateA - dateB; // Ascending order
+        });
+
+        journeys.forEach(journey => {
+            const flights = journey.flights;
+            let flightData = {};
+
+            if (flights.length === 1) {
+                // Direct flight
+                const flight = flights[0];
+                flightData = {
+                    STD: formatDateTime(flight.departureDateTime),
+                    ORIGIN: flight.departureAirportCode,
+                    STA: '', // Empty for direct flights
+                    STOP: '', // No stopover
+                    LAYOVER: '', // No layover
+                    STD_STOP: '', // No stopover departure
+                    DEST: flight.arrivalAirportCode,
+                    STA_DEST: formatDateTime(flight.arrivalDateTime),
+                    TOTAL_DURATION: formatDuration(journey.duration)
+                };
+            } else if (flights.length === 2) {
+                // Connecting flight
+                const firstFlight = flights[0];
+                const secondFlight = flights[1];
+                const layover = calculateLayover(firstFlight.arrivalDateTime, secondFlight.departureDateTime);
+                flightData = {
+                    STD: formatDateTime(firstFlight.departureDateTime),
+                    ORIGIN: firstFlight.departureAirportCode,
+                    STA: formatDateTime(firstFlight.arrivalDateTime),
+                    STOP: firstFlight.arrivalAirportCode,
+                    LAYOVER: layover,
+                    STD_STOP: formatDateTime(secondFlight.departureDateTime),
+                    DEST: secondFlight.arrivalAirportCode,
+                    STA_DEST: formatDateTime(secondFlight.arrivalDateTime),
+                    TOTAL_DURATION: formatDuration(journey.duration)
+                };
+            } else {
+                console.warn('Unsupported journey with multiple stops:', journey);
+                return;
+            }
+
+            // Add data to the table using the object properties
+            table.row.add([
+                flightData.STD,
+                flightData.ORIGIN,
+                flightData.STA,
+                flightData.STOP,
+                flightData.LAYOVER,
+                flightData.STD_STOP,
+                flightData.DEST,
+                flightData.STA_DEST,
+                flightData.TOTAL_DURATION
+            ]).draw();
+
+            // Generate a tile for the UI
+            const tile = createTile(flightData);
+            tilesHtml += tile;
+        });
+
+        // Render all tiles in the container
+        $('#tiles-container').html(tilesHtml);
+    }
 });
 
-// Helper functions
-function formatDateTime(dateTime) {
-    return moment(dateTime).format('YYYY-MM-DD HH:mm');
-}
-
-function formatDuration(durationStr) {
-    const [hours, minutes] = durationStr.split(':').map(Number);
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
-function calculateLayover(arrival, departure) {
-    const arrivalTime = moment(arrival);
-    const departureTime = moment(departure);
-    const diffMinutes = departureTime.diff(arrivalTime, 'minutes');
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
-    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
-}
-
-// Process flight data and populate table
-function processFlights(journeys, table) {
-    journeys.forEach(journey => {
-        const flights = journey.flights;
-        let rowData = [];
-
-        if (flights.length === 1) {
-            // Direct flight
-            const flight = flights[0];
-            rowData = [
-                formatDateTime(flight.departureDateTime), // STD
-                flight.departureAirportCode,              // ORIGIN
-                '',                                       // STA at stop (empty)
-                '',                                       // STOP AIRPORT (empty)
-                '',                                       // LAYOVER (empty)
-                '',                                       // STD from stop (empty)
-                flight.arrivalAirportCode,                // DESTINATION
-                formatDateTime(flight.arrivalDateTime),   // STA at destination
-                formatDuration(journey.duration)          // Total duration
-            ];
-        } else if (flights.length === 2) {
-            // Connecting flight
-            const firstFlight = flights[0];
-            const secondFlight = flights[1];
-            const layover = calculateLayover(firstFlight.arrivalDateTime, secondFlight.departureDateTime);
-            rowData = [
-                formatDateTime(firstFlight.departureDateTime),    // STD
-                firstFlight.departureAirportCode,                 // ORIGIN
-                formatDateTime(firstFlight.arrivalDateTime),      // STA at stop
-                firstFlight.arrivalAirportCode,                   // STOP AIRPORT
-                layover,                                          // LAYOVER
-                formatDateTime(secondFlight.departureDateTime),   // STD from stop
-                secondFlight.arrivalAirportCode,                  // DESTINATION
-                formatDateTime(secondFlight.arrivalDateTime),     // STA at destination
-                formatDuration(journey.duration)                  // Total duration
-            ];
-        } else {
-            console.warn('Unsupported journey with multiple stops:', journey);
-            return;
-        }
-
-        table.row.add(rowData).draw();
-    });
-}
