@@ -24,7 +24,7 @@
             font-weight: 500;
             color: #333;
             margin-bottom: 4px;
-            display: block; /* Ensure label stays above */
+            display: block;
         }
         /* Form inputs */
         .flight-form .form-control,
@@ -35,12 +35,12 @@
             font-size: 14px;
             height: 40px;
             width: 100%;
-            display: block; /* Ensure block layout */
+            display: block;
         }
         /* Select2 container */
         .flight-form .select2-container {
-            width: 100% !important; /* Force full width */
-            display: block !important; /* Ensure block layout */
+            width: 100% !important;
+            display: block !important;
         }
         .flight-form .select2-selection--multiple {
             border-radius: 6px;
@@ -68,7 +68,7 @@
             padding: 0;
             cursor: pointer;
             transition: background-color 0.2s;
-            margin: 0 auto; /* Center the button */
+            margin: 0 auto;
         }
         .swap-btn:hover {
             background-color: #e9ecef;
@@ -89,6 +89,36 @@
         }
         .flight-form .btn-primary:hover {
             background-color: #0056b3;
+        }
+        /* Single-line layout for departure dates and layover fields */
+        .field-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .field-group .form-group {
+            flex: 1;
+        }
+        .field-group .separator {
+            font-size: 14px;
+            color: #666;
+            margin: 0 5px;
+        }
+        /* Responsive adjustments for single-line fields */
+        @media (max-width: 768px) {
+            .field-group {
+                flex-direction: column;
+                gap: 12px;
+            }
+            .field-group .form-group {
+            width: 100%; /* Ensure full width on mobile */
+            }
+            .field-group .form-control {
+                width: 100%; /* Ensure input takes full width */
+            }
+            .field-group .separator {
+                display: none;
+            }
         }
 
         @media (max-width: 768px) {
@@ -334,20 +364,28 @@
                 <select id="destinations" class="form-select" multiple required></select>
             </div>
             <div class="mb-3">
-                <label for="departure-from" class="form-label">Departure date from</label>
-                <input type="text" id="departure-from" class="form-control" required>
+                <label class="form-label">Departure dates range (from - to)</label>
+                <div class="field-group">
+                    <div class="form-group">
+                        <input type="text" id="departure-from" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="text" id="departure-to" class="form-control" required>
+                    </div>
+                </div>
             </div>
             <div class="mb-3">
-                <label for="departure-to" class="form-label">Departure date to</label>
-                <input type="text" id="departure-to" class="form-control" required>
-            </div>
-            <div class="mb-3">
-                <label for="layover-from" class="form-label">Stopover min hours (pick hours from 0 - 12)</label>
-                <input type="number" id="layover-from" class="form-control" min="0" max="12" step="1" required>
-            </div>
-            <div class="mb-3">
-                <label for="layover-to" class="form-label">Stopover max hours (pick hours from 0 - 12)</label>
-                <input type="number" id="layover-to" class="form-control" min="0" max="12" step="1" required>
+                <label class="form-label">Stopover hours range (from 0 - 12)</label>
+                <div class="field-group">
+                    <div class="form-group">
+                        <input type="number" id="layover-from" class="form-control" min="0" max="12" step="1" required>
+                    </div>
+
+                    <div class="form-group">
+                        <input type="number" id="layover-to" class="form-control" min="0" max="12" step="1" required>
+                    </div>
+                </div>
             </div>
             <div class="mb-3">
                 <label for="time-format" class="form-label">Output times format (pick local or UTC)</label>

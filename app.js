@@ -213,6 +213,9 @@ $(document).ready(function() {
         // Clear tiles
         $('#tiles-container').empty();
 
+        // Clear checkbox
+        $('#direct-flights-only').prop('checked', false);
+
         try {
             // Create array of fetch promises
             const promises = [];
@@ -412,6 +415,8 @@ $(document).ready(function() {
             // Generate a tile for the UI
             const tile = createTile(flightData);
             tilesHtml += tile;
+
+
         });
 
         // Render all tiles in the container
