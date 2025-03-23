@@ -248,11 +248,11 @@
                 <input type="text" id="departure-to" class="form-control" required>
             </div>
             <div class="mb-3">
-                <label for="layover-from" class="form-label">Layover Min (pick hours 0 - 12)</label>
+                <label for="layover-from" class="form-label">Stopover min (pick hours 0 - 12)</label>
                 <input type="number" id="layover-from" class="form-control" min="0" max="12" step="1" required>
             </div>
             <div class="mb-3">
-                <label for="layover-to" class="form-label">Layover Max (pick hours 0 - 12)</label>
+                <label for="layover-to" class="form-label">Stopover max (pick hours 0 - 12)</label>
                 <input type="number" id="layover-to" class="form-control" min="0" max="12" step="1" required>
             </div>
             <div class="mb-3">
@@ -271,6 +271,12 @@
                 <span class="visually-hidden">Loading...</span>
             </div>
         </div>
+
+        <div class="mb-3">
+            <input type="checkbox" id="direct-flights-only">
+            <label for="direct-flights-only">Show direct flights only</label>
+        </div>
+        
         <table id="flights-table" class="table table-striped"></table>
         <div id="tiles-container"></div> <!-- Container for tiles on small screens -->
     </div>
