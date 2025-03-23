@@ -39,6 +39,18 @@ $(document).ready(function() {
         }
     });
 
+    // Swap button logic
+    $('#swap-btn').on('click', function() {
+        const originsVal = $('#origins').val() || [];
+        const destinationsVal = $('#destinations').val() || [];
+        $('#origins').val(destinationsVal).trigger('change');
+        $('#destinations').val(originsVal).trigger('change');
+        
+        // Update localStorage to reflect the swap
+        localStorage.setItem('origins', JSON.stringify(destinationsVal));
+        localStorage.setItem('destinations', JSON.stringify(originsVal));
+    });
+
     // Load form values from localStorage and apply them
         const savedDepartureFrom = localStorage.getItem('departure-from');
     if (savedDepartureFrom) {
