@@ -124,21 +124,40 @@ $(document).ready(function() {
     // Initialize DataTable with updated column titles
     const table = $('#flights-table').DataTable({
         columns: [
-            { title: 'STD' },                    // Departure time from origin
-            { title: 'ORIGIN' },                 // Origin airport code
-            { title: 'STA' },            // Arrival time at stop (empty for direct)
-            { title: 'STOP' },           // Stopover airport code
-            { title: 'LAYOVER' },        // Layover duration
-            { title: 'STD' },          // Departure time from stop
-            { title: 'DEST' },            // Destination airport code
-            { title: 'STA' },     // Arrival time at destination
-            { title: 'Total duration' }  // Total journey duration
+            { data: 'STD', title: 'STD', render: dataTableDatetime_addTimemodeSufix }, // Departure time
+            { data: 'ORIGIN', title: 'ORIGIN' },        // Departure airport
+            { data: 'STA', title: 'STA', render: dataTableDatetime_addTimemodeSufix  }, // Arrival time at stop (if applicable)
+            { data: 'STOP', title: 'STOP' },            // Stopover airport (if applicable)
+            { data: 'LAYOVER', title: 'LAYOVER' },      // Layover duration (if applicable)
+            { data: 'STD_STOP', title: 'STD_STOP', render: dataTableDatetime_addTimemodeSufix  }, // Departure time from stop (if applicable)
+            { data: 'DEST', title: 'DEST' },            // Final destination
+            { data: 'STA_DEST', title: 'STA_DEST', render: dataTableDatetime_addTimemodeSufix }, // Arrival time at destination
+            { data: 'TOTAL_DURATION', title: 'TOTAL_DURATION' }, // Total journey duration
+            {
+                title: 'Actions',
+                orderable: false,
+                searchable: false,
+                render: function(data, type, row) {
+                    const flight1Url = buildFlightUrl(row, 0); // First segment
+                    const flight2Url = row.STOP ? buildFlightUrl(row, 1) : null; // Second segment if stopover
+                    return `
+                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
+                            <i class="bi bi-airplane"></i> Flight 1
+                        </button>
+                        ${row.STOP ? `
+                            <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight2Url}', '_blank')">
+                                <i class="bi bi-airplane"></i> Flight 2
+                            </button>
+                        ` : ''}
+                    `;
+                }
+            }
         ],
 		columnDefs: [
             { targets: [1, 3, 6], width: '60px' } // Narrow width for ORIGIN, STOP, DEST
         ],
         responsive: true,
-        order: [[8, 'asc']], // Sort by total duration by default
+        order: [[0, 'asc']], // Sort by STD by default
         pageLength: 100      // Set pagination to 100 rows per page
     });
 
@@ -258,6 +277,14 @@ $(document).ready(function() {
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
+    function dataTableDatetime_addTimemodeSufix(data, type, row) {
+        if (type === 'display') {
+            const suffix = row.TIME_MODE === 'UTC' ? 'z' : ' LT';
+            return data ? data + suffix : data;
+        }
+        return data;
+    }
+
     // Helper function to calculate flight duration between two times
     function calculateFlightDuration(start, end, startAirportCode, endAirportCode, timeMode) {
         let startTime = moment(start, 'YYYY-MM-DD HH:mm');
@@ -293,6 +320,24 @@ $(document).ready(function() {
         return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
 
+    function buildFlightUrl(flight, segmentIndex) {
+        // Determine origin and destination based on segment
+        let originIata, destinationIata, departureDate;
+        if (segmentIndex === 0) {
+            // First segment: Origin to Stop (or Dest if direct)
+            originIata = flight.ORIGIN;
+            destinationIata = flight.STOP || flight.DEST;
+            departureDate = moment(flight.STD, 'YYYY-MM-DD HH:mm').format('YYYY-MM-DD');
+        } else {
+            // Second segment: Stop to Dest
+            originIata = flight.STOP;
+            destinationIata = flight.DEST;
+            departureDate = moment(flight.STD_STOP, 'YYYY-MM-DD HH:mm').format('YYYY-MM-DD');
+        }
+    
+        return `https://www.ryanair.com/ie/en/trip/flights/select?adults=1&teens=0&children=0&infants=0&dateOut=${departureDate}&dateIn=&isConnectedFlight=false&isReturn=false&discount=0&promoCode=&originIata=${originIata}&destinationIata=${destinationIata}`;
+    }
+
     function createTile(flight) {
         // Extract date from STD for the header (e.g., "2025-04-24 08:15" -> "Thu, Apr 24")
         const departureDate = moment(flight.DEPARTURE_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
@@ -303,6 +348,10 @@ $(document).ready(function() {
         const stopName = flight.STOP ? (airportNames[flight.STOP] || flight.STOP) : '';
         let isDirect = stopName !== '' ? false : true;
         let timeModeSuffix = flight.TIME_MODE === 'LOCAL' ? ' LT' : 'z';
+
+        // Build URLs for each flight segment
+        const flight1Url = buildFlightUrl(flight, 0); // First flight segment
+        const flight2Url = flight.STOP ? buildFlightUrl(flight, 1) : null; // Second flight segment (if stopover exists)
 
         return `
             <div class="tile ${isDirect ? 'direct' : ''}">
@@ -321,6 +370,9 @@ $(document).ready(function() {
                             <p class="time">${moment(flight.STA, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                             <p class="airport">${stopName} (${flight.STOP})</p>
                         </div>
+                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
+                            <i class="bi bi-airplane"></i> Flight 1
+                        </button>
                         <div class="stopover">
                             ${flight.LAYOVER} • Stopover in ${stopName} (${flight.STOP})
                         </div>
@@ -334,10 +386,21 @@ $(document).ready(function() {
                         <p class="time">${moment(flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                         <p class="airport">${destName} (${flight.DEST})</p>
                     </div>
+                    ${flight.STOP ? `
+                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight2Url}', '_blank')">
+                                <i class="bi bi-airplane"></i> Flight 2
+                        </button>
+                        ` : `
+                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
+                            <i class="bi bi-airplane"></i> Flight 1
+                        </button>
+                    `}
+                    
                 </div>
                 <div class="tile-footer">
                     <span class="date">Arrive • ${arrivalDate}</span>
                 </div>
+                
             </div>
         `;
     }
@@ -399,18 +462,7 @@ $(document).ready(function() {
             }
 
             // Add data to the table using the object properties
-            let timeModeSuffix = flightData.TIME_MODE === 'LOCAL' ? ' LT' : 'z';
-            table.row.add([
-                flightData.STD+timeModeSuffix,
-                flightData.ORIGIN,
-                flightData.STA ? flightData.STA+timeModeSuffix : '',
-                flightData.STOP,
-                flightData.LAYOVER,
-                flightData.STD_STOP ? flightData.STD_STOP+timeModeSuffix : '',
-                flightData.DEST,
-                flightData.STA_DEST+timeModeSuffix,
-                flightData.TOTAL_DURATION
-            ]).draw();
+            table.row.add(flightData).draw();
 
             // Generate a tile for the UI
             const tile = createTile(flightData);
