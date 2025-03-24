@@ -1,11 +1,17 @@
 $(document).ready(function() {
 
+    let config = { 
+        'flightsApiHost': 'services-api.ryanair.com',
+    }
+
     // Global object to store airport code-to-name mapping
     let airportNames = {};
     // New mapping for timezones
     let airportTimeZones = {}; 
-    // Store all flight data
+    // Store all journeys fetched from the API - including stopovers
     let allJourneys = []; 
+    // Store all journeys mapped in this app
+    let allFlights = [];
 
     // Initialize Select2 for multi-select dropdowns
     $('#origins').select2();
@@ -141,6 +147,9 @@ $(document).ready(function() {
                     const flight1Url = buildFlightUrl(row, 0); // First segment
                     const flight2Url = row.STOP ? buildFlightUrl(row, 1) : null; // Second segment if stopover
                     return `
+                        <a href="${generateGoogleCalendarUrl(row)}" target="_blank" class="btn btn-sm btn-outline-secondary"> 
+                            <i class="bi bi-calendar3"> </i> <i class="bi bi-google"> </i> 
+                        </a>
                         <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
                             <i class="bi bi-airplane"></i> Flight 1
                         </button>
@@ -172,7 +181,7 @@ $(document).ready(function() {
     `).appendTo('head');
 
     // Fetch airport list (replace with actual API endpoint)
-    fetch('https://services-api.ryanair.com/views/locate/5/airports/en/active')
+    fetch(`https://${config.flightsApiHost}/views/locate/5/airports/en/active`)
         .then(response => response.ok ? response.json() : Promise.reject('Network error'))
         .then(data => {
             data.forEach(airport => {
@@ -240,7 +249,7 @@ $(document).ready(function() {
             const promises = [];
             for (const origin of origins) {
                 for (const destination of destinations) {
-                    const url = `https://services-api.ryanair.com/timtbl/v3/journeys/${origin}/${destination}?` +
+                    const url = `https://${config.flightsApiHost}/timtbl/v3/journeys/${origin}/${destination}?` +
                                 `departureDateFrom=${departureFrom}&departureDateTo=${departureTo}&` +
                                 `timeMode=${timeMode}&layoverFrom=${layoverFrom}&layoverTo=${layoverTo}`;
                     const promise = fetch(url).then(response => {
@@ -283,6 +292,75 @@ $(document).ready(function() {
             return data ? data + suffix : data;
         }
         return data;
+    }
+
+    function generateGoogleCalendarUrl(flight) {
+
+        let timeModeSuffix = flight.TIME_MODE === 'LOCAL' ? ' LT' : 'z';
+        let startTime = moment(flight.DEPARTURE_DATE, 'YYYY-MM-DD HH:mm').format('YYYYMMDDTHHmmss')+ 'Z';;
+        let endTime = moment(flight.ARRIVAL_DATE, 'YYYY-MM-DD HH:mm').format('YYYYMMDDTHHmmss')+ 'Z';;
+
+        // If timeMode is LOCAL, convert times to UTC using the airports' timezones
+        if (flight.TIME_MODE === 'LOCAL') {
+            const startTimeZone = airportTimeZones[flight.ORIGIN];
+            const endTimeZone = airportTimeZones[flight.DEST];
+
+            if (!startTimeZone || !endTimeZone) {
+                console.warn(`Timezone not found for airports: ${startAirportCode} or ${endAirportCode}`);
+                // Fallback to no conversion if timezone is missing
+            } else {
+                // Convert local times to UTC
+                startTime = moment.tz(flight.DEPARTURE_DATE, 'YYYY-MM-DD HH:mm', startTimeZone).utc().format('YYYYMMDDTHHmmss')+ 'Z';;
+                endTime = moment.tz(flight.ARRIVAL_DATE, 'YYYY-MM-DD HH:mm', endTimeZone).utc().format('YYYYMMDDTHHmmss')+ 'Z';;
+            }
+        }
+    
+        // Get airport names, falling back to codes if not found
+        const origin = airportNames[flight.ORIGIN] || flight.ORIGIN;
+        const destination = airportNames[flight.DEST] || flight.DEST;
+        const stopover = flight.STOP ? airportNames[flight.STOP] || flight.STOP : null;
+    
+        // Build the event title
+        let title = `Flight ${origin} to ${destination}`;
+        if (stopover) {
+            title += ` via ${stopover}`; // Add stopover to title
+        }
+    
+        // Build the event description
+        const departureDate = moment(flight.DEPARTURE_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
+        const arrivalDate = moment(flight.ARRIVAL_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
+
+        // Build the event description to match the specified format
+        let description = `Depart • ${departureDate}\n\n`;
+
+        // First segment: Departure to Stop (or Destination if direct)
+        description += `${moment(flight.STD, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix} ${origin} (${flight.ORIGIN}) | `;
+        description += `${moment(flight.STA || flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix} ${stopover ? stopover : destination} (${stopover ?  flight.STOP : flight.DEST}) | `;
+        description += `Flight time ${calculateFlightDuration(flight.STD, flight.STA || flight.STA_DEST, flight.ORIGIN, stopover ? flight.STOP : flight.DEST, flight.TIME_MODE)}\n`;
+
+        // Stopover section (if applicable)
+        if (stopover) {
+            description += `\n- Stopover for ${flight.LAYOVER} in ${stopover} (${flight.STOP})\n\n`;
+            // Second segment: Stop to Destination
+            description += `${moment(flight.STD_STOP, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix} ${stopover} (${flight.STOP}) | `;
+            description += `${moment(flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix} ${destination} (${flight.DEST}) | `;
+            description += `Flight time ${calculateFlightDuration(flight.STD_STOP, flight.STA_DEST, flight.STOP, flight.DEST, flight.TIME_MODE)}\n`;
+        }
+
+        // Footer
+        description += `\nArrive • ${arrivalDate}`;
+    
+        // Construct the Google Calendar URL
+        const baseUrl = 'https://www.google.com/calendar/render';
+        const params = new URLSearchParams({
+            action: 'TEMPLATE',                    // New event template
+            text: title,                           // Event title with stopover
+            dates: `${startTime}/${endTime}`,      // Start and end times
+            details: description,                  // Description with stopover details
+            location: `Departure: ${origin}, Arrival: ${destination}` // Location field
+        });
+    
+        return `${baseUrl}?${params.toString()}`;
     }
 
     // Helper function to calculate flight duration between two times
@@ -338,7 +416,7 @@ $(document).ready(function() {
         return `https://www.ryanair.com/ie/en/trip/flights/select?adults=1&teens=0&children=0&infants=0&dateOut=${departureDate}&dateIn=&isConnectedFlight=false&isReturn=false&discount=0&promoCode=&originIata=${originIata}&destinationIata=${destinationIata}`;
     }
 
-    function createTile(flight) {
+    function createTile(flight, index) {
         // Extract date from STD for the header (e.g., "2025-04-24 08:15" -> "Thu, Apr 24")
         const departureDate = moment(flight.DEPARTURE_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
         const arrivalDate = moment(flight.ARRIVAL_DATE, 'YYYY-MM-DD HH:mm').format('ddd, MMM D');
@@ -370,9 +448,7 @@ $(document).ready(function() {
                             <p class="time">${moment(flight.STA, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                             <p class="airport">${stopName} (${flight.STOP})</p>
                         </div>
-                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
-                            <i class="bi bi-airplane"></i> Flight 1
-                        </button>
+                        
                         <div class="stopover">
                             ${flight.LAYOVER} • Stopover in ${stopName} (${flight.STOP})
                         </div>
@@ -386,27 +462,32 @@ $(document).ready(function() {
                         <p class="time">${moment(flight.STA_DEST, 'YYYY-MM-DD HH:mm').format('HH:mm')}${timeModeSuffix}</p>
                         <p class="airport">${destName} (${flight.DEST})</p>
                     </div>
-                    ${flight.STOP ? `
-                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight2Url}', '_blank')">
-                                <i class="bi bi-airplane"></i> Flight 2
-                        </button>
-                        ` : `
-                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
-                            <i class="bi bi-airplane"></i> Flight 1
-                        </button>
-                    `}
+                    
                     
                 </div>
                 <div class="tile-footer">
                     <span class="date">Arrive • ${arrivalDate}</span>
                 </div>
-                
+                <div class="tile-actions"> 
+                    <a href="${generateGoogleCalendarUrl(flight)}" target="_blank" class="btn btn-sm btn-outline-secondary"> 
+                        <i class="bi bi-calendar3"> </i> <i class="bi bi-google"> </i> 
+                    </a>
+                    <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
+                        <i class="bi bi-airplane"></i> Flight 1
+                    </button>
+                    ${flight.STOP ? `
+                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight2Url}', '_blank')">
+                                <i class="bi bi-airplane"></i> Flight 2
+                        </button>
+                        ` : ``}
+                </div>
             </div>
         `;
     }
 
     // Process flight data and populate table
     function processFlights(journeys, table) {
+        allFlights = [];
         let tilesHtml = '';
 
         // Sort journeys by departureDateTime in ascending order
@@ -416,7 +497,7 @@ $(document).ready(function() {
             return dateA - dateB; // Ascending order
         });
 
-        journeys.forEach(journey => {
+        journeys.forEach((journey,index) => {
             const flights = journey.flights;
             let flightData = {};
 
@@ -461,11 +542,13 @@ $(document).ready(function() {
                 return;
             }
 
+            allFlights.push(flightData);
+
             // Add data to the table using the object properties
             table.row.add(flightData).draw();
 
             // Generate a tile for the UI
-            const tile = createTile(flightData);
+            const tile = createTile(flightData, index);
             tilesHtml += tile;
 
 
