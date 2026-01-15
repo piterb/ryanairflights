@@ -9,7 +9,8 @@ $(document).ready(function() {
     // New mapping for timezones
     let airportTimeZones = {}; 
     // Store all journeys fetched from the API - including stopovers
-    let allJourneys = []; 
+    let allJourneysOutbound = []; 
+    let allJourneysReturn = [];
     // Store all journeys mapped in this app
     let allFlights = [];
 
@@ -26,6 +27,14 @@ $(document).ready(function() {
         dateFormat: 'Y-m-d',
         defaultDate: new Date()
     });
+    var returnFromPicker = flatpickr('#return-from', { 
+        dateFormat: 'Y-m-d',
+        defaultDate: new Date()
+    });
+    var returnToPicker = flatpickr('#return-to', { 
+        dateFormat: 'Y-m-d',
+        defaultDate: new Date()
+    });
 
     let isSyncingDates = false;
 
@@ -33,10 +42,133 @@ $(document).ready(function() {
         return value ? picker.parseDate(value, 'Y-m-d') : null;
     }
 
+    function getMinReturnDateStr() {
+        return $('#departure-to').val() || $('#departure-from').val() || null;
+    }
+
+    function updateReturnMinDate() {
+        const minStr = getMinReturnDateStr();
+        returnFromPicker.set('minDate', minStr || null);
+        returnToPicker.set('minDate', minStr || null);
+    }
+
+    function clearReturnFields() {
+        isSyncingDates = true;
+        returnFromPicker.clear();
+        returnToPicker.clear();
+        isSyncingDates = false;
+    }
+
+    function isReturnBeforeDeparture(value) {
+        const minStr = getMinReturnDateStr();
+        const minDate = parsePickerDate(returnFromPicker, minStr);
+        const current = parsePickerDate(returnFromPicker, value);
+        if (!minDate || !current) return false;
+        return current < minDate;
+    }
+
+    function ensureReturnToNotBeforeFrom() {
+        if (isSyncingDates) return;
+        const fromVal = $('#return-from').val();
+        const toVal = $('#return-to').val();
+        if (fromVal && toVal !== fromVal) {
+            isSyncingDates = true;
+            returnToPicker.setDate(fromVal, true);
+            isSyncingDates = false;
+            updateReturnErrorState();
+            return;
+        }
+        const fromDate = parsePickerDate(returnFromPicker, fromVal);
+        const toDate = parsePickerDate(returnToPicker, toVal);
+        if (toVal && isReturnBeforeDeparture(toVal)) {
+            isSyncingDates = true;
+            returnToPicker.setDate(getMinReturnDateStr(), true);
+            isSyncingDates = false;
+            return;
+        }
+        if (fromDate && toDate && toDate < fromDate) {
+            isSyncingDates = true;
+            returnToPicker.setDate(fromVal, true);
+            isSyncingDates = false;
+        }
+        updateReturnErrorState();
+    }
+
+    function ensureReturnFromNotAfterTo() {
+        if (isSyncingDates) return;
+        const fromVal = $('#return-from').val();
+        const toVal = $('#return-to').val();
+        if (!fromVal && toVal) {
+            isSyncingDates = true;
+            returnFromPicker.setDate(toVal, true);
+            isSyncingDates = false;
+            updateReturnErrorState();
+            return;
+        }
+        const fromDate = parsePickerDate(returnFromPicker, fromVal);
+        const toDate = parsePickerDate(returnToPicker, toVal);
+        if (fromVal && isReturnBeforeDeparture(fromVal)) {
+            isSyncingDates = true;
+            returnFromPicker.setDate(getMinReturnDateStr(), true);
+            isSyncingDates = false;
+            return;
+        }
+        if (fromDate && toDate && toDate < fromDate) {
+            isSyncingDates = true;
+            returnFromPicker.setDate(toVal, true);
+            isSyncingDates = false;
+        }
+        updateReturnErrorState();
+    }
+
+    $('#return-from').on('change', ensureReturnToNotBeforeFrom);
+    $('#return-to').on('change', ensureReturnFromNotAfterTo);
+
+    function updateTripTypeUI() {
+        const isReturn = $('#trip-return').is(':checked');
+        $('#return-range').toggleClass('d-none', !isReturn);
+        if (!isReturn) {
+            $('#return-error').addClass('d-none');
+            $('#return-results').addClass('d-none');
+        }
+    }
+
+    $('input[name="trip-type"]').on('change', updateTripTypeUI);
+
+    function isReturnValidState() {
+        if (!$('#trip-return').is(':checked')) {
+            return true;
+        }
+        const returnFrom = $('#return-from').val();
+        const returnTo = $('#return-to').val();
+        const returnFromDate = parsePickerDate(returnFromPicker, returnFrom);
+        const returnToDate = parsePickerDate(returnToPicker, returnTo);
+        const minReturnDate = parsePickerDate(returnFromPicker, getMinReturnDateStr());
+        if (!returnFrom || !returnTo || !returnFromDate || !returnToDate) {
+            return false;
+        }
+        if (minReturnDate && (returnFromDate < minReturnDate || returnToDate < minReturnDate)) {
+            return false;
+        }
+        return returnToDate >= returnFromDate;
+    }
+
+    function updateReturnErrorState() {
+        if (isReturnValidState()) {
+            $('#return-error').addClass('d-none');
+        }
+    }
+
     function ensureToNotBeforeFrom() {
         if (isSyncingDates) return;
         const fromVal = $('#departure-from').val();
         const toVal = $('#departure-to').val();
+        if (fromVal && toVal !== fromVal) {
+            isSyncingDates = true;
+            departureToPicker.setDate(fromVal, true);
+            isSyncingDates = false;
+            return;
+        }
         const fromDate = parsePickerDate(departureFromPicker, fromVal);
         const toDate = parsePickerDate(departureToPicker, toVal);
         if (fromDate && toDate && toDate < fromDate) {
@@ -44,12 +176,25 @@ $(document).ready(function() {
             departureToPicker.setDate(fromVal, true);
             isSyncingDates = false;
         }
+        updateReturnMinDate();
+        if ($('#return-from').val() || $('#return-to').val()) {
+            if (isReturnBeforeDeparture($('#return-from').val()) || isReturnBeforeDeparture($('#return-to').val())) {
+                clearReturnFields();
+            }
+        }
+        updateReturnErrorState();
     }
 
     function ensureFromNotAfterTo() {
         if (isSyncingDates) return;
         const fromVal = $('#departure-from').val();
         const toVal = $('#departure-to').val();
+        if (!fromVal && toVal) {
+            isSyncingDates = true;
+            departureFromPicker.setDate(toVal, true);
+            isSyncingDates = false;
+            return;
+        }
         const fromDate = parsePickerDate(departureFromPicker, fromVal);
         const toDate = parsePickerDate(departureToPicker, toVal);
         if (fromDate && toDate && toDate < fromDate) {
@@ -57,6 +202,13 @@ $(document).ready(function() {
             departureFromPicker.setDate(toVal, true);
             isSyncingDates = false;
         }
+        updateReturnMinDate();
+        if ($('#return-from').val() || $('#return-to').val()) {
+            if (isReturnBeforeDeparture($('#return-from').val()) || isReturnBeforeDeparture($('#return-to').val())) {
+                clearReturnFields();
+            }
+        }
+        updateReturnErrorState();
     }
 
     $('#departure-from').on('change', ensureToNotBeforeFrom);
@@ -112,7 +264,9 @@ $(document).ready(function() {
         $('#tile-view-btn').addClass('active');
         $('#table-view-btn').removeClass('active');
         $('#tiles-container').show();
+        $('#tiles-container-return').show();
         $('#flights-table').hide();
+        $('#flights-table-return').hide();
         $('.dataTables_paginate').hide();
         $('.dataTables_filter').hide();
         $('.dataTables_info').hide();
@@ -123,27 +277,38 @@ $(document).ready(function() {
         $('#table-view-btn').addClass('active');
         $('#tile-view-btn').removeClass('active');
         $('#flights-table').show();
+        $('#flights-table-return').show();
         $('#tiles-container').hide();
+        $('#tiles-container-return').hide();
         $('.dataTables_paginate').show();
         $('.dataTables_filter').show();
         $('.dataTables_info').show();
         $('.dataTables_length').show();
-        table.columns.adjust().draw(); // Recalculate table layout
+        outboundTable.columns.adjust().draw(); // Recalculate table layout
+        returnTable.columns.adjust().draw();
     });
 
     // Add event listener for the checkbox
     $('#direct-flights-only').on('change', function() {
         const directOnly = $(this).is(':checked'); // true if checked, false if unchecked
-        const filteredJourneys = directOnly 
-            ? allJourneys.filter(journey => journey.flights.length === 1) // Only direct flights
-            : allJourneys; // All flights
+        const filteredOutbound = directOnly 
+            ? allJourneysOutbound.filter(journey => journey.flights.length === 1) // Only direct flights
+            : allJourneysOutbound; // All flights
+        const filteredReturn = directOnly 
+            ? allJourneysReturn.filter(journey => journey.flights.length === 1) // Only direct flights
+            : allJourneysReturn; // All flights
         
         // Clear current table and tiles
-        table.clear().draw();
+        outboundTable.clear().draw();
+        returnTable.clear().draw();
         $('#tiles-container').empty();
+        $('#tiles-container-return').empty();
         
         // Re-render with filtered data
-        processFlights(filteredJourneys, table);
+        processFlights(filteredOutbound, outboundTable, '#tiles-container');
+        if ($('#return-results').is(':visible')) {
+            processFlights(filteredReturn, returnTable, '#tiles-container-return');
+        }
     });
 
     // Load form values from localStorage and apply them
@@ -163,6 +328,23 @@ $(document).ready(function() {
     }
     isSyncingDates = false;
     ensureToNotBeforeFrom();
+    updateReturnMinDate();
+
+    const savedReturnFrom = localStorage.getItem('return-from');
+    const savedReturnTo = localStorage.getItem('return-to');
+    isSyncingDates = true;
+    if (savedReturnFrom) {
+        returnFromPicker.setDate(savedReturnFrom, true);
+    } else {
+        returnFromPicker.setDate(new Date(), true);
+    }
+    if (savedReturnTo) {
+        returnToPicker.setDate(savedReturnTo, true);
+    } else {
+        returnToPicker.setDate(new Date(), true);
+    }
+    isSyncingDates = false;
+    ensureReturnToNotBeforeFrom();
 
     const savedLayoverFrom = localStorage.getItem('layover-from');
     $('#layover-from').val(savedLayoverFrom !== null && savedLayoverFrom !== '' ? savedLayoverFrom : 0);
@@ -173,55 +355,71 @@ $(document).ready(function() {
     const savedTimeFormat = localStorage.getItem('time-format');
     if (savedTimeFormat) $('#time-format').val(savedTimeFormat);
 
-    // Initialize DataTable with updated column titles
-    const table = $('#flights-table').DataTable({
-        columns: [
-            { data: 'STD', title: 'STD', render: dataTableDatetime_addTimemodeSufix }, // Departure time
-            { data: 'ORIGIN', title: 'ORIGIN' },        // Departure airport
-            { data: 'STA', title: 'STA', render: dataTableDatetime_addTimemodeSufix  }, // Arrival time at stop (if applicable)
-            { data: 'STOP', title: 'STOP' },            // Stopover airport (if applicable)
-            { data: 'LAYOVER', title: 'LAYOVER' },      // Layover duration (if applicable)
-            { data: 'STD_STOP', title: 'STD_STOP', render: dataTableDatetime_addTimemodeSufix  }, // Departure time from stop (if applicable)
-            { data: 'DEST', title: 'DEST' },            // Final destination
-            { data: 'STA_DEST', title: 'STA_DEST', render: dataTableDatetime_addTimemodeSufix }, // Arrival time at destination
-            { data: 'TOTAL_DURATION', title: 'TOTAL_DURATION' }, // Total journey duration
-            {
-                title: 'Actions',
-                orderable: false,
-                searchable: false,
-                render: function(data, type, row) {
-                    const flight1Url = buildFlightUrl(row, 0); // First segment
-                    const flight2Url = row.STOP ? buildFlightUrl(row, 1) : null; // Second segment if stopover
-                    return `
-                        <a href="${generateGoogleCalendarUrl(row)}" target="_blank" class="btn btn-sm btn-outline-secondary"> 
-                            <i class="bi bi-calendar3"> </i> <i class="bi bi-google"> </i> 
-                        </a>
-                        <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
-                            <i class="bi bi-airplane"></i> Flight 1
-                        </button>
-                        ${row.STOP ? `
-                            <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight2Url}', '_blank')">
-                                <i class="bi bi-airplane"></i> Flight 2
-                            </button>
-                        ` : ''}
-                    `;
-                }
-            }
-        ],
-		columnDefs: [
-            { targets: [1, 3, 6], width: '60px' } // Narrow width for ORIGIN, STOP, DEST
-        ],
-        responsive: true,
-        order: [[0, 'asc']], // Sort by STD by default
-        pageLength: 100      // Set pagination to 100 rows per page
-    });
+    const savedTripType = localStorage.getItem('trip-type');
+    if (savedTripType === 'return') {
+        $('#trip-return').prop('checked', true);
+    } else {
+        $('#trip-oneway').prop('checked', true);
+    }
+    updateTripTypeUI();
+    updateReturnErrorState();
 
-    table.clear().draw(); // Clear the table initially
+    function createFlightsTable(selector) {
+        return $(selector).DataTable({
+            columns: [
+                { data: 'STD', title: 'STD', render: dataTableDatetime_addTimemodeSufix }, // Departure time
+                { data: 'ORIGIN', title: 'ORIGIN' },        // Departure airport
+                { data: 'STA', title: 'STA', render: dataTableDatetime_addTimemodeSufix  }, // Arrival time at stop (if applicable)
+                { data: 'STOP', title: 'STOP' },            // Stopover airport (if applicable)
+                { data: 'LAYOVER', title: 'LAYOVER' },      // Layover duration (if applicable)
+                { data: 'STD_STOP', title: 'STD_STOP', render: dataTableDatetime_addTimemodeSufix  }, // Departure time from stop (if applicable)
+                { data: 'DEST', title: 'DEST' },            // Final destination
+                { data: 'STA_DEST', title: 'STA_DEST', render: dataTableDatetime_addTimemodeSufix }, // Arrival time at destination
+                { data: 'TOTAL_DURATION', title: 'TOTAL_DURATION' }, // Total journey duration
+                {
+                    title: 'Actions',
+                    orderable: false,
+                    searchable: false,
+                    render: function(data, type, row) {
+                        const flight1Url = buildFlightUrl(row, 0); // First segment
+                        const flight2Url = row.STOP ? buildFlightUrl(row, 1) : null; // Second segment if stopover
+                        return `
+                            <a href="${generateGoogleCalendarUrl(row)}" target="_blank" class="btn btn-sm btn-outline-secondary"> 
+                                <i class="bi bi-calendar3"> </i> <i class="bi bi-google"> </i> 
+                            </a>
+                            <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight1Url}', '_blank')">
+                                <i class="bi bi-airplane"></i> Flight 1
+                            </button>
+                            ${row.STOP ? `
+                                <button class="btn btn-sm btn-outline-primary" onclick="window.open('${flight2Url}', '_blank')">
+                                    <i class="bi bi-airplane"></i> Flight 2
+                                </button>
+                            ` : ''}
+                        `;
+                    }
+                }
+            ],
+            columnDefs: [
+                { targets: [1, 3, 6], width: '60px' } // Narrow width for ORIGIN, STOP, DEST
+            ],
+            responsive: true,
+            order: [[0, 'asc']], // Sort by STD by default
+            pageLength: 100      // Set pagination to 100 rows per page
+        });
+    }
+
+    // Initialize DataTable with updated column titles
+    const outboundTable = createFlightsTable('#flights-table');
+    const returnTable = createFlightsTable('#flights-table-return');
+
+    outboundTable.clear().draw(); // Clear the table initially
+    returnTable.clear().draw();
     $('#tile-view-btn').click(); // Switch to tile view by default
 	
 	// Add CSS to prevent wrapping in date-time columns
     $('<style>').text(`
-        #flights-table td {
+        #flights-table td,
+        #flights-table-return td {
             white-space: nowrap;
         }
     `).appendTo('head');
@@ -264,15 +462,36 @@ $(document).ready(function() {
         const destinations = $('#destinations').val();
         const departureFrom = $('#departure-from').val();
         const departureTo = $('#departure-to').val();
+        const returnFrom = $('#return-from').val();
+        const returnTo = $('#return-to').val();
         const layoverFrom = $('#layover-from').val() || 0;
         const layoverTo = $('#layover-to').val() || 12;
         const timeMode = $('#time-format').val();
+
+        if (!isReturnValidState()) {
+            $('#return-error').removeClass('d-none');
+            return;
+        }
+        $('#return-error').addClass('d-none');
+
+        const isReturnTrip = $('#trip-return').is(':checked');
+        const routeList = (values) => (values || []).join(', ');
+        $('#outbound-title').text(`Outbound: ${routeList(origins)} <-> ${routeList(destinations)}`);
+        if (isReturnTrip) {
+            $('#return-title').text(`Return: ${routeList(destinations)} <-> ${routeList(origins)}`);
+            $('#return-results').removeClass('d-none');
+        } else {
+            $('#return-results').addClass('d-none');
+        }
 
         // Save form values to localStorage
         localStorage.setItem('origins', JSON.stringify(origins));
         localStorage.setItem('destinations', JSON.stringify(destinations));
         localStorage.setItem('departure-from', departureFrom);
         localStorage.setItem('departure-to', departureTo);
+        localStorage.setItem('return-from', returnFrom);
+        localStorage.setItem('return-to', returnTo);
+        localStorage.setItem('trip-type', isReturnTrip ? 'return' : 'oneway');
         localStorage.setItem('layover-from', layoverFrom === '' ? '' : layoverFrom);
         localStorage.setItem('layover-to', layoverTo === '' ? '' : layoverTo);
         localStorage.setItem('time-format', timeMode);
@@ -282,17 +501,19 @@ $(document).ready(function() {
         $('button[type="submit"]').prop('disabled', true);
 
         // Clear table
-        table.clear().draw();
+        outboundTable.clear().draw();
+        returnTable.clear().draw();
 
         // Clear tiles
         $('#tiles-container').empty();
+        $('#tiles-container-return').empty();
 
         // Clear checkbox
         $('#direct-flights-only').prop('checked', false);
 
         try {
             // Create array of fetch promises
-            const promises = [];
+            const outboundPromises = [];
             for (const origin of origins) {
                 for (const destination of destinations) {
                     const url = `https://${config.flightsApiHost}/timtbl/v3/journeys/${origin}/${destination}?` +
@@ -302,16 +523,39 @@ $(document).ready(function() {
                         if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
                         return response.json();
                     });
-                    promises.push(promise);
+                    outboundPromises.push(promise);
+                }
+            }
+
+            const returnPromises = [];
+            if (isReturnTrip) {
+                for (const origin of origins) {
+                    for (const destination of destinations) {
+                        const url = `https://${config.flightsApiHost}/timtbl/v3/journeys/${destination}/${origin}?` +
+                                    `departureDateFrom=${returnFrom}&departureDateTo=${returnTo}&` +
+                                    `timeMode=${timeMode}&layoverFrom=${layoverFrom}&layoverTo=${layoverTo}`;
+                        const promise = fetch(url).then(response => {
+                            if (!response.ok) throw new Error(`HTTP error: ${response.status}`);
+                            return response.json();
+                        });
+                        returnPromises.push(promise);
+                    }
                 }
             }
 
             // Wait for all API calls to finish
-            const allResponses = await Promise.all(promises);
-            allJourneys = allResponses.flat();
+            const [outboundResponses, returnResponses] = await Promise.all([
+                Promise.all(outboundPromises),
+                Promise.all(returnPromises)
+            ]);
+            allJourneysOutbound = outboundResponses.flat();
+            allJourneysReturn = returnResponses.flat();
 
             // Process and display flights
-            processFlights(allJourneys, table);
+            processFlights(allJourneysOutbound, outboundTable, '#tiles-container');
+            if (isReturnTrip) {
+                processFlights(allJourneysReturn, returnTable, '#tiles-container-return');
+            }
         } catch (error) {
             console.error('Error fetching flights:', error);
             alert('Failed to fetch flight data. Please try again.');
@@ -532,7 +776,7 @@ $(document).ready(function() {
     }
 
     // Process flight data and populate table
-    function processFlights(journeys, table) {
+    function processFlights(journeys, table, tilesContainerSelector) {
         allFlights = [];
         let tilesHtml = '';
 
@@ -601,6 +845,6 @@ $(document).ready(function() {
         });
 
         // Render all tiles in the container
-        $('#tiles-container').html(tilesHtml);
+        $(tilesContainerSelector).html(tilesHtml);
     }
 });
