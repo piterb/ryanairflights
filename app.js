@@ -27,6 +27,49 @@ $(document).ready(function() {
         defaultDate: new Date()
     });
 
+    let isSyncingDates = false;
+
+    function parsePickerDate(picker, value) {
+        return value ? picker.parseDate(value, 'Y-m-d') : null;
+    }
+
+    function ensureToNotBeforeFrom() {
+        if (isSyncingDates) return;
+        const fromVal = $('#departure-from').val();
+        const toVal = $('#departure-to').val();
+        const fromDate = parsePickerDate(departureFromPicker, fromVal);
+        const toDate = parsePickerDate(departureToPicker, toVal);
+        if (fromDate && toDate && toDate < fromDate) {
+            isSyncingDates = true;
+            departureToPicker.setDate(fromVal, true);
+            isSyncingDates = false;
+        }
+    }
+
+    function ensureFromNotAfterTo() {
+        if (isSyncingDates) return;
+        const fromVal = $('#departure-from').val();
+        const toVal = $('#departure-to').val();
+        const fromDate = parsePickerDate(departureFromPicker, fromVal);
+        const toDate = parsePickerDate(departureToPicker, toVal);
+        if (fromDate && toDate && toDate < fromDate) {
+            isSyncingDates = true;
+            departureFromPicker.setDate(toVal, true);
+            isSyncingDates = false;
+        }
+    }
+
+    $('#departure-from').on('change', ensureToNotBeforeFrom);
+    $('#departure-to').on('change', ensureFromNotAfterTo);
+
+    $('#advanced-fields')
+        .on('shown.bs.collapse', function() {
+            $('#advanced-toggle-icon').removeClass('bi-plus-lg').addClass('bi-dash-lg');
+        })
+        .on('hidden.bs.collapse', function() {
+            $('#advanced-toggle-icon').removeClass('bi-dash-lg').addClass('bi-plus-lg');
+        });
+
     // Restrict layover inputs to 0-12 range and ensure layover-from <= layover-to in real-time
     $('#layover-from').on('input', function() {
         const layoverFrom = parseFloat(this.value);
@@ -104,19 +147,22 @@ $(document).ready(function() {
     });
 
     // Load form values from localStorage and apply them
-        const savedDepartureFrom = localStorage.getItem('departure-from');
+    const savedDepartureFrom = localStorage.getItem('departure-from');
+    const savedDepartureTo = localStorage.getItem('departure-to');
+    isSyncingDates = true;
     if (savedDepartureFrom) {
         departureFromPicker.setDate(savedDepartureFrom, true);
     } else {
         departureFromPicker.setDate(new Date(), true); // Default to current date if no stored value
     }
 
-    const savedDepartureTo = localStorage.getItem('departure-to');
     if (savedDepartureTo) {
         departureToPicker.setDate(savedDepartureTo, true);
     } else {
         departureToPicker.setDate(new Date(), true); // Default to current date if no stored value
     }
+    isSyncingDates = false;
+    ensureToNotBeforeFrom();
 
     const savedLayoverFrom = localStorage.getItem('layover-from');
     $('#layover-from').val(savedLayoverFrom !== null && savedLayoverFrom !== '' ? savedLayoverFrom : 0);
@@ -558,4 +604,3 @@ $(document).ready(function() {
         $('#tiles-container').html(tilesHtml);
     }
 });
-

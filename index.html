@@ -376,23 +376,31 @@
                 </div>
             </div>
             <div class="mb-3">
-                <label class="form-label">Stopover hours range (from 0 - 12)</label>
-                <div class="field-group">
-                    <div class="form-group">
-                        <input type="number" id="layover-from" class="form-control" min="0" max="12" step="1" required>
-                    </div>
+                <button type="button" class="btn btn-outline-secondary d-inline-flex align-items-center gap-2" id="advanced-toggle" data-bs-toggle="collapse" data-bs-target="#advanced-fields" aria-expanded="false" aria-controls="advanced-fields">
+                    <i class="bi bi-plus-lg" id="advanced-toggle-icon"></i>
+                    <span>Advanced</span>
+                </button>
+            </div>
+            <div id="advanced-fields" class="collapse">
+                <div class="mb-3">
+                    <label class="form-label">Stopover hours range (from 0 - 12)</label>
+                    <div class="field-group">
+                        <div class="form-group">
+                            <input type="number" id="layover-from" class="form-control" min="0" max="12" step="1">
+                        </div>
 
-                    <div class="form-group">
-                        <input type="number" id="layover-to" class="form-control" min="0" max="12" step="1" required>
+                        <div class="form-group">
+                            <input type="number" id="layover-to" class="form-control" min="0" max="12" step="1">
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="mb-3">
-                <label for="time-format" class="form-label">Output times format (pick local or UTC)</label>
-                <select id="time-format" class="form-select">
-                    <option value="LOCAL">Local</option>
-                    <option value="UTC">UTC</option>
-                </select>
+                <div class="mb-3">
+                    <label for="time-format" class="form-label">Output times format (pick local or UTC)</label>
+                    <select id="time-format" class="form-select">
+                        <option value="LOCAL">Local</option>
+                        <option value="UTC">UTC</option>
+                    </select>
+                </div>
             </div>
             <button type="submit" class="btn btn-primary">Search</button>
         </form>
