@@ -1,6 +1,11 @@
 # Ryanair Flights
 
 [![CI](https://github.com/piterb/ryanairflights/actions/workflows/ci.yml/badge.svg)](https://github.com/piterb/ryanairflights/actions/workflows/ci.yml)
+![License](https://img.shields.io/badge/license-MIT-blue.svg)
+![Node](https://img.shields.io/badge/node-20.x-339933)
+
+[![Live](https://img.shields.io/badge/live-ryanairflights.pages.dev-E07A3F)](https://ryanairflights.pages.dev/)
+
 
 Live: https://ryanairflights.pages.dev/
 

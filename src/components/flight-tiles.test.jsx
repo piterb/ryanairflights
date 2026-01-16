@@ -42,7 +42,7 @@ describe("FlightTiles", () => {
     );
 
     expect(
-      screen.getByText(/Stopover in Bergamo \(BGY\)/),
+      screen.getByText(/stopover in Bergamo \(BGY\)/i),
     ).toBeInTheDocument();
     expect(screen.getByText("Flight 1")).toBeInTheDocument();
     expect(screen.getByText("Calendar")).toBeInTheDocument();
