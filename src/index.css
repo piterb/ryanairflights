@@ -2,33 +2,39 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Fraunces:opsz,wght@9..144,500;600;700&display=swap");
+
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 222.2 47.4% 11.2%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 222.2 84% 4.9%;
-    --radius: 0.75rem;
+    --background: 32 55% 96%;
+    --foreground: 25 24% 16%;
+    --card: 30 60% 97%;
+    --card-foreground: 25 24% 16%;
+    --popover: 30 60% 97%;
+    --popover-foreground: 25 24% 16%;
+    --primary: 17 74% 45%;
+    --primary-foreground: 35 60% 96%;
+    --secondary: 32 38% 90%;
+    --secondary-foreground: 25 24% 20%;
+    --muted: 32 35% 90%;
+    --muted-foreground: 25 12% 45%;
+    --accent: 27 56% 88%;
+    --accent-foreground: 25 24% 20%;
+    --destructive: 0 72% 52%;
+    --destructive-foreground: 35 60% 96%;
+    --border: 28 30% 84%;
+    --input: 28 30% 84%;
+    --ring: 17 74% 45%;
+    --radius: 0.9rem;
   }
 }
 
 body {
-  @apply bg-slate-50 text-slate-900;
+  @apply bg-background text-foreground font-sans;
+}
+
+h1, h2, h3 {
+  @apply font-display;
 }
 
 input[type="date"]::-webkit-calendar-picker-indicator {

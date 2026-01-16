@@ -54,14 +54,14 @@ export function MultiSelect({ label, options, selected, onChange, placeholder })
   return (
     <div className="space-y-2">
       <Label>{label}</Label>
-      <div className="rounded-md border border-slate-200 bg-white p-2">
+      <div className="rounded-md border border-border/70 bg-background/80 p-2">
         <div className="flex flex-wrap gap-2">
           {selected.map((code) => (
             <button
               key={code}
               type="button"
               onClick={() => toggleOption(code)}
-              className="rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-700 hover:bg-slate-200"
+              className="rounded-full bg-accent/70 px-3 py-1 text-xs text-accent-foreground hover:bg-accent"
             >
               {options.find((item) => item.code === code)?.name || code} (
               {code}) x
@@ -81,9 +81,9 @@ export function MultiSelect({ label, options, selected, onChange, placeholder })
         />
       </div>
       {open && (
-        <div className="max-h-56 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm">
+        <div className="max-h-56 overflow-y-auto rounded-md border border-border/70 bg-card shadow-lg shadow-orange-100/40">
           {filtered.length === 0 ? (
-            <div className="px-3 py-2 text-sm text-slate-500">
+            <div className="px-3 py-2 text-sm text-muted-foreground">
               No matches found.
             </div>
           ) : (

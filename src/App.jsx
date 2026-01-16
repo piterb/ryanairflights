@@ -238,11 +238,11 @@ function App() {
 
     const routeList = (values) => (values || []).join(", ");
     setOutboundTitle(
-      `Outbound: ${routeList(origins)} <-> ${routeList(destinations)}`,
+      `Outbound: ${routeList(origins)} to ${routeList(destinations)}`,
     );
     if (tripType === "return") {
       setReturnTitle(
-        `Return: ${routeList(destinations)} <-> ${routeList(origins)}`,
+        `Return: ${routeList(destinations)} to ${routeList(origins)}`,
       );
     } else {
       setReturnTitle("");
@@ -310,23 +310,31 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="mx-auto max-w-6xl px-4 py-8">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-slate-900">
-            Flight Search
-          </h1>
-          <p className="text-sm text-slate-500">
-            Ryanair connections with optional stopovers.
-          </p>
+    <div className="min-h-screen bg-gradient-to-b from-[#fbf2ea] via-[#f8eee4] to-[#f6eadf]">
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p className="text-sm uppercase tracking-[0.2em] text-muted-foreground">
+              Ryanair Flight Explorer
+            </p>
+            <h1 className="mt-2 text-3xl font-semibold text-foreground md:text-4xl">
+              Plan flexible trips with stopovers.
+            </h1>
+          </div>
+          <div className="rounded-full border border-border bg-card px-4 py-2 text-xs font-medium text-muted-foreground">
+            Powered by live Ryanair schedules
+          </div>
         </div>
 
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Search</CardTitle>
+        <Card className="mb-10 border-border/60 bg-card/90 shadow-xl shadow-orange-100/50">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-xl text-foreground">Search</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Pick origins and destinations, then refine with flexible filters.
+            </p>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-6">
               <MultiSelect
                 label="List of origins"
                 options={airports}
@@ -340,7 +348,7 @@ function App() {
                   type="button"
                   variant="outline"
                   onClick={handleSwap}
-                  className="rounded-full px-3"
+                  className="rounded-full border-border bg-background/70 px-3 shadow-sm"
                   aria-label="Swap origins and destinations"
                 >
                   <ArrowLeftRight className="h-4 w-4" />
@@ -399,7 +407,7 @@ function App() {
               </div>
 
               {tripType === "return" && (
-                <div className="space-y-3">
+                <div className="space-y-3 rounded-xl border border-border/60 bg-background/70 p-4">
                   <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
                     <div className="space-y-2">
                       <Label htmlFor="return-from">
@@ -428,7 +436,7 @@ function App() {
                     </div>
                   </div>
                   {returnError && (
-                    <p className="text-sm text-red-600">
+                    <p className="text-sm text-destructive">
                       Return dates are required and must be on/after the
                       departure dates.
                     </p>
@@ -441,16 +449,17 @@ function App() {
                   type="button"
                   variant="outline"
                   onClick={() => setAdvancedOpen((open) => !open)}
+                  className="border-border bg-background/70"
                 >
                   {advancedOpen ? "Hide advanced" : "Show advanced"}
                 </Button>
-                <span className="text-sm text-slate-500">
+                <span className="text-sm text-muted-foreground">
                   Optional stopover and output settings.
                 </span>
               </div>
 
               {advancedOpen && (
-                <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+                <div className="grid gap-4 rounded-xl border border-border/60 bg-background/70 p-4 md:grid-cols-[1fr_1fr]">
                   <div className="space-y-2">
                     <Label htmlFor="layover-from">
                       Stopover hours range (from 0 - 12)
@@ -495,7 +504,11 @@ function App() {
                 </div>
               )}
 
-              <Button type="submit" disabled={isLoading}>
+              <Button
+                type="submit"
+                disabled={isLoading}
+                className="bg-primary text-primary-foreground hover:bg-primary/90"
+              >
                 {isLoading ? "Searching..." : "Search"}
               </Button>
             </form>
@@ -519,12 +532,12 @@ function App() {
               Table
             </Button>
           </div>
-          <label className="flex items-center gap-2 text-sm text-slate-600">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground">
             <input
               type="checkbox"
               checked={directOnly}
               onChange={(event) => setDirectOnly(event.target.checked)}
-              className="h-4 w-4 rounded border-slate-300 text-slate-900"
+              className="h-4 w-4 rounded border-border text-foreground"
             />
             Show direct flights only
           </label>

@@ -4,9 +4,9 @@ import { buildFlightUrl, generateGoogleCalendarUrl } from "../lib/flight-utils";
 
 export function FlightsTable({ flights, airportNames, airportTimeZones }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-slate-200">
+    <div className="overflow-x-auto rounded-xl border border-border/60 bg-card/90 shadow-lg shadow-orange-100/40">
       <table className="w-full text-sm">
-        <thead className="bg-slate-100 text-left text-xs uppercase tracking-wide text-slate-500">
+        <thead className="bg-accent/70 text-left text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th className="px-4 py-3">STD</th>
             <th className="px-4 py-3">ORIGIN</th>
@@ -20,11 +20,14 @@ export function FlightsTable({ flights, airportNames, airportTimeZones }) {
             <th className="px-4 py-3">Actions</th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-200">
+        <tbody className="divide-y divide-border/60">
           {flights.map((flight, index) => {
             const suffix = flight.TIME_MODE === "LOCAL" ? " LT" : "z";
             return (
-              <tr key={`${flight.ORIGIN}-${flight.DEST}-${index}`}>
+              <tr
+                key={`${flight.ORIGIN}-${flight.DEST}-${index}`}
+                className="hover:bg-accent/40"
+              >
                 <td className="px-4 py-3">
                   {flight.STD}
                   {suffix}
@@ -48,7 +51,12 @@ export function FlightsTable({ flights, airportNames, airportTimeZones }) {
                 <td className="px-4 py-3">{flight.TOTAL_DURATION}</td>
                 <td className="px-4 py-3">
                   <div className="flex flex-wrap gap-2">
-                    <Button asChild variant="outline" size="sm" className="text-xs">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="border-border text-xs"
+                    >
                       <a
                         href={generateGoogleCalendarUrl({
                           flight,
@@ -62,7 +70,12 @@ export function FlightsTable({ flights, airportNames, airportTimeZones }) {
                         <span>Calendar</span>
                       </a>
                     </Button>
-                    <Button asChild variant="outline" size="sm" className="text-xs">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="border-border text-xs"
+                    >
                       <a
                         href={buildFlightUrl(flight, 0)}
                         target="_blank"
@@ -73,7 +86,12 @@ export function FlightsTable({ flights, airportNames, airportTimeZones }) {
                       </a>
                     </Button>
                     {flight.STOP && (
-                      <Button asChild variant="outline" size="sm" className="text-xs">
+                      <Button
+                        asChild
+                        variant="outline"
+                        size="sm"
+                        className="border-border text-xs"
+                      >
                         <a
                           href={buildFlightUrl(flight, 1)}
                           target="_blank"
