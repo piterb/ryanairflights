@@ -1,16 +1,48 @@
-# React + Vite
+# Ryanair Flights
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Live: https://ryanairflights.pages.dev/
 
-Currently, two official plugins are available:
+Search Ryanair connections with flexible stopovers. This app finds one-way and return options, supports multiple origins and destinations, and lets you filter by stopover hours and output time mode (LT/UTC).
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## Features
+- Multi-select origins and destinations with autocomplete
+- One-way or return searches
+- Departure and return date ranges
+- Stopover hours range (advanced)
+- Output time mode: local time (LT) or UTC (z)
+- Tiles or table results
+- Direct-only filter
 
-## React Compiler
+## Data source
+The app uses an unofficial, publicly available Ryanair API endpoint. There is no official documentation for these endpoints.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Disclaimer
+This project is unofficial and not affiliated with Ryanair. Data accuracy and availability are not guaranteed. Use at your own risk.
 
-## Expanding the ESLint configuration
+## Verification
+Each result includes a direct link to the official Ryanair booking page for that specific flight, so you can verify availability and timing.
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## API notes
+- Ryanair public timetable endpoints (undocumented, unofficial)
+- No guarantees of uptime, stability, or correctness
+
+## Tech stack
+- React + Vite
+- Tailwind CSS + shadcn/ui
+- Vitest + Testing Library
+
+## Development
+```bash
+npm install
+npm run dev
+```
+
+## Build
+```bash
+npm run build
+```
+
+## Tests
+```bash
+npm run test
+```
