@@ -10,6 +10,9 @@ See live preview here: <a href="https://ryanairflights.pages.dev/" target="_blan
 
 Search Ryanair connections with flexible stopovers. This app finds one-way and return options, supports multiple origins and destinations, and lets you filter by stopover hours and output time mode (LT/UTC).
 
+## Author
+https://github.com/piterb
+
 ## Features
 - Multi-select origins and destinations with autocomplete
 - One-way or return searches
