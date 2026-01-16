@@ -3,6 +3,8 @@
 [![CI](https://github.com/piterb/ryanairflights/actions/workflows/ci.yml/badge.svg?branch=master)](https://github.com/piterb/ryanairflights/actions/workflows/ci.yml)
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Node](https://img.shields.io/badge/node-20.x-339933)
+![Version](https://img.shields.io/github/package-json/v/piterb/ryanairflights)
+
 
 See live preview here: https://ryanairflights.pages.dev/
 
