@@ -1,5 +1,7 @@
 # Ryanair Flights
 
+[![CI](https://github.com/piterb/ryanairflights/actions/workflows/ci.yml/badge.svg)](https://github.com/piterb/ryanairflights/actions/workflows/ci.yml)
+
 Live: https://ryanairflights.pages.dev/
 
 Search Ryanair connections with flexible stopovers. This app finds one-way and return options, supports multiple origins and destinations, and lets you filter by stopover hours and output time mode (LT/UTC).
