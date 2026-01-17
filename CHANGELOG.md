@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1
+- Added multi-airport paste support in origin/destination selector
+- Added clear buttons for origins and destinations
+- Aligned departure/return date range inputs
+
 ## 0.2.0
 - Full UI redesign (React + Tailwind + shadcn/ui)
 - Added return search, advanced filters, and tiles/table views

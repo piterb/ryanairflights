@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MultiSelect } from "./multi-select";
 
@@ -44,5 +44,21 @@ describe("MultiSelect", () => {
     const input = screen.getByPlaceholderText("Type to search");
     await user.click(input);
     expect(screen.queryByText("No matches found.")).not.toBeInTheDocument();
+  });
+
+  it("accepts multiple airport codes from paste", async () => {
+    const user = userEvent.setup();
+    render(<Wrapper />);
+
+    const input = screen.getByPlaceholderText("Type to search");
+    fireEvent.paste(input, {
+      clipboardData: {
+        getData: () => "DUB, ATH\nBGY",
+      },
+    });
+
+    expect(await screen.findByText("Dublin (DUB) x")).toBeInTheDocument();
+    expect(await screen.findByText("Athens (ATH) x")).toBeInTheDocument();
+    expect(await screen.findByText("Bergamo (BGY) x")).toBeInTheDocument();
   });
 });

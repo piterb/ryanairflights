@@ -341,6 +341,9 @@ function App() {
                 selected={origins}
                 onChange={setOrigins}
                 placeholder="Type to search origins..."
+                onClear={() => setOrigins([])}
+                clearLabel="Clear all origins"
+                clearDisabled={origins.length === 0}
               />
 
               <div className="flex items-center justify-center">
@@ -361,6 +364,9 @@ function App() {
                 selected={destinations}
                 onChange={setDestinations}
                 placeholder="Type to search destinations..."
+                onClear={() => setDestinations([])}
+                clearLabel="Clear all destinations"
+                clearDisabled={destinations.length === 0}
               />
 
               <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
@@ -377,8 +383,12 @@ function App() {
                     required
                   />
                 </div>
-                <div className="space-y-2 md:pt-7">
+                <div className="space-y-2">
+                  <Label htmlFor="departure-to" className="invisible">
+                    Departure dates range (to)
+                  </Label>
                   <DateInput
+                    id="departure-to"
                     value={departureTo}
                     onChange={(event) =>
                       handleDepartureToChange(event.target.value)
@@ -423,7 +433,10 @@ function App() {
                         min={minReturnDate || undefined}
                       />
                     </div>
-                    <div className="space-y-2 md:pt-7">
+                    <div className="space-y-2">
+                      <Label htmlFor="return-to" className="invisible">
+                        Return flight departure range (to)
+                      </Label>
                       <DateInput
                         id="return-to"
                         value={returnTo}

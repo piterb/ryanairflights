@@ -1,12 +1,47 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X } from "lucide-react";
+import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { filterAirports } from "../lib/flight-utils";
 
-export function MultiSelect({ label, options, selected, onChange, placeholder }) {
+export function MultiSelect({
+  label,
+  options,
+  selected,
+  onChange,
+  placeholder,
+  onClear,
+  clearLabel = "Clear selection",
+  clearDisabled = false,
+}) {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const pasteFallbackRef = useRef(false);
+
+  const resolvePastedCodes = (value) => {
+    const codeSet = new Set(options.map((option) => option.code.toUpperCase()));
+    const codeMatches = value.match(/[A-Za-z]{3}/g) || [];
+    const matchedCodes = codeMatches
+      .map((code) => code.toUpperCase())
+      .filter((code) => codeSet.has(code));
+    if (matchedCodes.length > 0) return matchedCodes;
+
+    const optionMap = new Map(
+      options.map((option) => [option.name.toLowerCase(), option.code]),
+    );
+    return value
+      .split(/[,\n;\t]+/)
+      .map((token) => token.trim())
+      .filter(Boolean)
+      .map((token) => {
+        const upper = token.toUpperCase();
+        if (codeSet.has(upper)) return upper;
+        return optionMap.get(token.toLowerCase());
+      })
+      .filter(Boolean);
+  };
 
   const filtered = useMemo(
     () => filterAirports(options, query),
@@ -51,9 +86,99 @@ export function MultiSelect({ label, options, selected, onChange, placeholder })
     }
   };
 
+  const handlePaste = (event) => {
+    const pasted =
+      event.clipboardData?.getData("text/plain") ||
+      event.clipboardData?.getData("text") ||
+      "";
+    if (pasted) {
+      const codes = resolvePastedCodes(pasted);
+      if (codes.length === 0) return;
+
+      event.preventDefault();
+      const next = [...selected];
+      const seen = new Set(selected);
+      codes.forEach((code) => {
+        if (!seen.has(code)) {
+          next.push(code);
+          seen.add(code);
+        }
+      });
+      onChange(next);
+      setQuery("");
+      setOpen(false);
+      setActiveIndex(0);
+      return;
+    }
+
+    pasteFallbackRef.current = true;
+    setTimeout(() => {
+      if (!pasteFallbackRef.current) return;
+      pasteFallbackRef.current = false;
+      const value = event.target.value || "";
+      const codes = resolvePastedCodes(value);
+      if (codes.length === 0) return;
+
+      const next = [...selected];
+      const seen = new Set(selected);
+      codes.forEach((code) => {
+        if (!seen.has(code)) {
+          next.push(code);
+          seen.add(code);
+        }
+      });
+      onChange(next);
+      setQuery("");
+      setOpen(false);
+      setActiveIndex(0);
+    }, 0);
+  };
+
+  const handleChange = (event) => {
+    if (pasteFallbackRef.current) {
+      pasteFallbackRef.current = false;
+    }
+    const value = event.target.value;
+    if (/[,\n;\t]/.test(value)) {
+      const codes = resolvePastedCodes(value);
+      if (codes.length > 0) {
+        const next = [...selected];
+        const seen = new Set(selected);
+        codes.forEach((code) => {
+          if (!seen.has(code)) {
+            next.push(code);
+            seen.add(code);
+          }
+        });
+        onChange(next);
+        setQuery("");
+        setOpen(false);
+        setActiveIndex(0);
+        return;
+      }
+    }
+    setQuery(value);
+  };
+
   return (
     <div className="space-y-2">
-      <Label>{label}</Label>
+      <div className="flex items-center justify-between gap-3">
+        <Label>{label}</Label>
+        {onClear && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            onClick={onClear}
+            disabled={clearDisabled}
+            aria-label={clearLabel}
+            title={clearLabel}
+            className="border-border bg-background/70"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
       <div className="rounded-md border border-border/70 bg-background/80 p-2">
         <div className="flex flex-wrap gap-2">
           {selected.map((code) => (
@@ -71,7 +196,8 @@ export function MultiSelect({ label, options, selected, onChange, placeholder })
         <Input
           value={query}
           placeholder={placeholder}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={handleChange}
+          onPaste={handlePaste}
           onFocus={() => {
             if (query.trim()) setOpen(true);
           }}
